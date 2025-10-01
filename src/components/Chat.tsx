@@ -100,7 +100,7 @@ export default function Chat() {
     <div className="flex flex-col gap-4">
       <div
         ref={viewportRef}
-        className="h-[60vh] overflow-auto rounded-2xl border bg-white p-4 shadow-sm"
+        className="h-[60vh] overflow-auto rounded-2xl border border-border bg-card text-card-foreground p-4 shadow-sm"
       >
         {messages
           .filter((m) => m.role !== 'system')
@@ -110,31 +110,31 @@ export default function Chat() {
               className={clsx(
                 'mb-3 rounded-xl px-3 py-2 whitespace-pre-wrap',
                 m.role === 'user'
-                  ? 'bg-neutral-100 self-end'
-                  : 'bg-blue-50'
+                  ? 'bg-secondary text-secondary-foreground self-end'
+                  : 'bg-primary/10 text-foreground'
               )}
             >
-              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-1">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
                 {m.role}
               </div>
               <div className="text-sm">{m.content}</div>
             </div>
           ))}
         {isStreaming && (
-          <div className="text-xs text-neutral-500 animate-pulse">thinking…</div>
+          <div className="text-xs text-muted-foreground animate-pulse">thinking…</div>
         )}
       </div>
 
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
-          className="flex-1 rounded-xl border px-3 py-2 shadow-sm outline-none focus:ring"
+          className="flex-1 rounded-xl border border-input bg-background text-foreground px-3 py-2 shadow-sm outline-none focus:ring-2 focus:ring-ring"
           placeholder="Ask something…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={isStreaming}
         />
         <button
-          className="rounded-xl bg-black px-4 py-2 text-white shadow-sm disabled:opacity-50"
+          className="rounded-xl bg-primary text-primary-foreground px-4 py-2 shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
           disabled={isStreaming || !input.trim()}
         >
           Send
@@ -142,7 +142,7 @@ export default function Chat() {
       </form>
 
       {error && (
-        <div className="text-sm text-red-600">
+        <div className="text-sm text-destructive">
           {error}
         </div>
       )}
