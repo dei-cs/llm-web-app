@@ -5,8 +5,8 @@ type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 export async function POST(req: Request) {
   const { messages } = (await req.json()) as { messages: ChatMessage[] };
 
-  const apiKey = process.env.LLM_API_KEY || 'dev123';
-  const baseUrl = process.env.LLM_API_URL || 'http://localhost:3001';
+  const apiKey = process.env.BACKEND_API_KEY || 'dev123';
+  const baseUrl = process.env.BACKEND_API_URL || 'http://localhost:3001';
 
   const upstream = await fetch(`${baseUrl}/v1/chat`, {
     method: 'POST',
