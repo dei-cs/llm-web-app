@@ -7,17 +7,46 @@ type Role = 'system' | 'user' | 'assistant';
 type Message = { role: Role; content: string };
 
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'system',
-      content:
-        'You are a helpful assistant. Keep replies brief unless asked for detail.',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [systemMessageLoaded, setSystemMessageLoaded] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
+
+  // Load system message from config on mount
+  useEffect(() => {
+    const loadSystemMessage = async () => {
+      try {
+        const response = await fetch('/api/config/prompts');
+        if (response.ok) {
+          const data = await response.json();
+          setMessages([{
+            role: 'system',
+            content: data.system_message || 'You are a helpful assistant. Keep replies brief unless asked for detail.',
+          }]);
+          setSystemMessageLoaded(true);
+        } else {
+          // Fallback to default if API fails
+          setMessages([{
+            role: 'system',
+            content: 'You are a helpful assistant. Keep replies brief unless asked for detail.',
+          }]);
+          setSystemMessageLoaded(true);
+        }
+      } catch (error) {
+        console.error('Failed to load system message:', error);
+        // Fallback to default
+        setMessages([{
+          role: 'system',
+          content: 'You are a helpful assistant. Keep replies brief unless asked for detail.',
+        }]);
+        setSystemMessageLoaded(true);
+      }
+    };
+
+    loadSystemMessage();
+  }, []);
 
   useEffect(() => {
     viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight, behavior: 'smooth' });
@@ -27,7 +56,7 @@ export default function Chat() {
     e.preventDefault();
     setError(null);
     const userText = input.trim();
-    if (!userText || isStreaming) return;
+    if (!userText || isStreaming || !systemMessageLoaded) return;
 
     const nextMessages = [...messages, { role: 'user' as const, content: userText }];
     setMessages(nextMessages);
@@ -102,26 +131,32 @@ export default function Chat() {
         ref={viewportRef}
         className="h-[60vh] overflow-auto rounded-2xl border border-border bg-card text-card-foreground p-4 shadow-sm"
       >
-        {messages
-          .filter((m) => m.role !== 'system')
-          .map((m, i) => (
-            <div
-              key={i}
-              className={clsx(
-                'mb-3 rounded-xl px-3 py-2 whitespace-pre-wrap',
-                m.role === 'user'
-                  ? 'bg-secondary text-secondary-foreground self-end'
-                  : 'bg-primary/10 text-foreground'
-              )}
-            >
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                {m.role}
-              </div>
-              <div className="text-sm">{m.content}</div>
-            </div>
-          ))}
-        {isStreaming && (
-          <div className="text-xs text-muted-foreground animate-pulse">thinking…</div>
+        {!systemMessageLoaded ? (
+          <div className="text-sm text-muted-foreground text-center py-4">Loading configuration...</div>
+        ) : (
+          <>
+            {messages
+              .filter((m) => m.role !== 'system')
+              .map((m, i) => (
+                <div
+                  key={i}
+                  className={clsx(
+                    'mb-3 rounded-xl px-3 py-2 whitespace-pre-wrap',
+                    m.role === 'user'
+                      ? 'bg-secondary text-secondary-foreground self-end'
+                      : 'bg-primary/10 text-foreground'
+                  )}
+                >
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                    {m.role}
+                  </div>
+                  <div className="text-sm">{m.content}</div>
+                </div>
+              ))}
+            {isStreaming && (
+              <div className="text-xs text-muted-foreground animate-pulse">thinking…</div>
+            )}
+          </>
         )}
       </div>
 

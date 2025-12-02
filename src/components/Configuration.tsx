@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef} from 'react';
+import AdvancedConfig from './AdvancedConfig';
 
 export default function Configuration() {
   const [files, setFiles] = useState<File[]>([]);
@@ -265,8 +266,8 @@ export default function Configuration() {
 
       </div>
 
-      {/* Additional Configuration Options (placeholder) */}
-      
+      {/* Advanced Configuration */}
+      <AdvancedConfig />
     </div>
   );
 }
