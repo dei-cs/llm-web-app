@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef} from 'react';
 
 export default function Configuration() {
   const [files, setFiles] = useState<File[]>([]);
@@ -10,6 +10,11 @@ export default function Configuration() {
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [googleLoggedIn, setGoogleLoggedIn] = useState(false);
+  const initDoneRef = useRef(false);
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || ''; // e.g. http://127.0.0.1:8000
+  const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -60,6 +65,55 @@ export default function Configuration() {
       setUploading(false);
     }
   };
+
+// Minimal Google Identity Services setup: load script and render button
+    useEffect(() => {
+  const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+  const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+
+  if (!CLIENT_ID) return;
+  if (initDoneRef.current) return;
+
+  const init = () => {
+    // @ts-ignore
+    if (!window.google?.accounts?.id) return;
+
+    // @ts-ignore
+    window.google.accounts.id.initialize({
+      client_id: CLIENT_ID,
+      callback: (resp: any) => {
+        const token = resp?.credential;
+        if (!token) return;
+        fetch(`${BACKEND.replace(/\/$/, '')}/login/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        }).then(() => setGoogleLoggedIn(true));
+      },
+    });
+
+    // @ts-ignore
+    window.google.accounts.id.renderButton(
+      document.getElementById('googleButtonDiv'),
+      { theme: 'outline', size: 'large' }
+    );
+
+    // Do not call prompt() automatically
+    initDoneRef.current = true;
+  };
+
+  const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+  if (existing) {
+    init();
+    return;
+  }
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.async = true;
+  s.defer = true;
+  s.onload = init;
+  document.head.appendChild(s);
+}, []);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -200,6 +254,15 @@ export default function Configuration() {
             {uploadStatus.message}
           </div>
         )}
+
+        {/* Google Login Button */}
+        <div className="mt-6">
+          <div id="googleButtonDiv" style={{ minHeight: 48 }} />
+          {googleLoggedIn && (
+            <p className="mt-3 text-sm text-primary">Signed in with Google</p>
+          )}
+        </div>
+
       </div>
 
       {/* Additional Configuration Options (placeholder) */}
