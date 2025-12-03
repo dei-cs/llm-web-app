@@ -13,8 +13,11 @@ export default function Configuration() {
   } | null>(null);
   const [googleLoggedIn, setGoogleLoggedIn] = useState(false);
   const initDoneRef = useRef(false);
+  const tokenClientRef = useRef<any>(null); 
+  const [connected, setConnected] = useState(false);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || ''; // e.g. http://127.0.0.1:8000
+  const VECTOR_DB_URL = process.env.NEXT_PUBLIC_VECTOR_DB_URL || 'http://localhost:8003';
+  const VECTOR_DB_API_KEY = process.env.NEXT_PUBLIC_VECTOR_DB_API_KEY || 'dev-vectordb-key-12345';
   const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,39 +70,64 @@ export default function Configuration() {
     }
   };
 
+  const handleConnectDrive = async () => {
+  const tc = tokenClientRef.current;
+  if (!tc) {
+    console.error('Token client not initialized');
+    return;
+  }
+  // This call must be triggered from a user gesture (button click)
+  tc.requestAccessToken();
+};
+
 // Minimal Google Identity Services setup: load script and render button
-    useEffect(() => {
+useEffect(() => {
   const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
-  const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+  const VECTOR_DB_URL = process.env.NEXT_PUBLIC_VECTOR_DB_URL || 'http://localhost:8003';
+  const VECTOR_DB_API_KEY = process.env.NEXT_PUBLIC_VECTOR_DB_API_KEY || 'db-example-key';
 
   if (!CLIENT_ID) return;
   if (initDoneRef.current) return;
 
   const init = () => {
     // @ts-ignore
-    if (!window.google?.accounts?.id) return;
+    if (!window.google?.accounts?.oauth2) return;
 
+    // Initialize ID sign-in as before
     // @ts-ignore
-    window.google.accounts.id.initialize({
+   tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
-      callback: (resp: any) => {
-        const token = resp?.credential;
-        if (!token) return;
-        fetch(`${BACKEND.replace(/\/$/, '')}/login/google`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        }).then(() => setGoogleLoggedIn(true));
+      scope: 'https://www.googleapis.com/auth/drive.readonly',
+      callback: async (tokenResponse: any) => {
+        const accessToken = tokenResponse?.access_token;
+        if (!accessToken) return;
+        setConnected(true);
+
+        try {
+          const res = await fetch(`${VECTOR_DB_URL.replace(/\/$/, '')}/fetch-and-ingest/drive`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': VECTOR_DB_API_KEY,
+            },
+            body: JSON.stringify({
+              access_token: accessToken,
+              collection_name: collectionName,
+              max_files: 200,
+              ingest: true,
+            }),
+          });
+          if (!res.ok) {
+            console.error('Vector DB ingest failed', res.status, await res.text());
+          } else {
+            console.log('Vector DB ingest succeeded', await res.json());
+          }
+        } catch (err) {
+          console.error('Failed to call vector DB', err);
+        }
       },
     });
 
-    // @ts-ignore
-    window.google.accounts.id.renderButton(
-      document.getElementById('googleButtonDiv'),
-      { theme: 'outline', size: 'large' }
-    );
-
-    // Do not call prompt() automatically
     initDoneRef.current = true;
   };
 
@@ -114,7 +142,7 @@ export default function Configuration() {
   s.defer = true;
   s.onload = init;
   document.head.appendChild(s);
-}, []);
+}, [CLIENT_ID, collectionName, VECTOR_DB_URL, VECTOR_DB_API_KEY]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -256,13 +284,21 @@ export default function Configuration() {
           </div>
         )}
 
-        {/* Google Login Button */}
-        <div className="mt-6">
-          <div id="googleButtonDiv" style={{ minHeight: 48 }} />
-          {googleLoggedIn && (
-            <p className="mt-3 text-sm text-primary">Signed in with Google</p>
-          )}
-        </div>
+        <button
+          onClick={() => {
+            const tc = tokenClientRef.current;
+            if (!tc) {
+              console.error('Token client not initialized');
+              return;
+            }
+            // user-initiated request opens consent/sign-in popup if needed
+            tc.requestAccessToken();
+          }}
+          className="mt-2 rounded-lg bg-secondary px-3 py-2 text-sm"
+        >
+          Connect Google Drive
+        </button>
+        
 
       </div>
 
