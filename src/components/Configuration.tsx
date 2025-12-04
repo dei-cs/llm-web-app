@@ -100,6 +100,8 @@ useEffect(() => {
       scope: 'https://www.googleapis.com/auth/drive.readonly',
       callback: async (tokenResponse: any) => {
         const accessToken = tokenResponse?.access_token;
+        console.log('Access Token:', accessToken);
+        console.log('Full Token Response:', tokenResponse);
         if (!accessToken) return;
         setConnected(true);
 
